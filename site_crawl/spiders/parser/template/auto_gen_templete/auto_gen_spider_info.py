@@ -2,10 +2,10 @@ import os
 import uuid
 from string import Template
 
-from site_crawl.spiders.util.tools import genUUID
 
 from apps.entry_id import source_dict
 from site_crawl.spiders.parser.template.auto_gen_templete.parse_template_str import template_str
+from util.tools import genUUID
 
 domain = "dnn.mn"
 country = "mn"
