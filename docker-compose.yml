@@ -1,0 +1,16 @@
+version: '3.9'
+
+# 如果是在虚拟机上进行docker-compose操作，
+# 需要关闭SE-linux： 执行 setenforce 0
+
+services:
+  site_crawl_slaver:
+    image: site_crawl:v2.0
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+    container_name: site_crawl_slaver
+    volumes:
+      - /home/site_crawl:/home/site_crawl
+#      - /vdb-data/sourcedata:/vdb-data/sourcedata
+    restart: unless-stopped

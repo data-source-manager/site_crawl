@@ -1,0 +1,198 @@
+# -*- coding: utf-8 -*-
+import re
+import time
+from urllib.parse import urljoin
+
+from site_crawl.spiders.parser.base_parser import BaseParser
+from util.time_deal import datetime_helper
+
+
+class CH_tagesanzeigerParser(BaseParser):
+    name = 'ch_tagesanzeiger'
+    
+    # 站点id
+    site_id = "1aae958a-5a27-4453-ad03-958bd8f8e5ed"
+    # 站点名
+    site_name = "每日导报"
+    # 板块信息
+    channel = [
+        {
+            # 板块默认字段(站点id, 站点名, 站点地区)
+            **{"site_id": "1aae958a-5a27-4453-ad03-958bd8f8e5ed", "source_name": "每日导报", "direction": "ch", "if_front_position": False}, 
+            # (板块id, 板块名, 板块URL, 板块类型)
+            **{"board_id": board_id, "site_board_name": board_name, "url": board_url, "board_theme": board_theme}
+        }
+        for board_id, board_name, board_url, board_theme in [
+            ("0e3e33c5-8f2c-9544-8e0d-6b6040b472f3", "专题", "", "政治"),
+            ("91235d12-2f72-11ed-a768-d4619d029786", "专题/乌克兰战争", "https://www.tagesanzeiger.ch/fokusthema", "政治"),
+            ("91235d44-2f72-11ed-a768-d4619d029786", "国际", "https://www.tagesanzeiger.ch/ausland", "政治"),
+        ]
+    ]
+    
+    def __init__(self):
+        BaseParser.__init__(self)
+        self.Dict = {}
+
+    def parse_list(self, response) -> list:
+        news_urls = response.xpath("//article[contains(@class,'ArticleTeaser_-format-')]/a/@href").extract() or []
+        if news_urls:
+            for news_url in list(set(news_urls)):
+                if not news_url.startswith('http'):
+                    news_url = urljoin(response.url, news_url)
+                yield news_url
+
+    def get_title(self, response) -> str:
+        if "230591284724" in response.url:
+            titles = response.xpath("//meta[@name='twitter:title']/@content").extract_first(default="")
+            if titles:
+                title = re.findall('– (.*)', titles)[0]
+                return title.strip() if title else ""
+        else:
+            title = response.xpath("//h2/span[contains(@class,'ContentHead_text')]/text()").extract_first(default="")
+            return title.strip() if title else ""
+        titles = response.xpath("//meta[@name='twitter:title']/@content").extract_first(default="")
+        title = re.findall('– (.*)', titles)[0]
+        return title.strip() if title else ""
+
+    def get_author(self, response) -> list:
+        author_list = []
+        Author_links = response.xpath("//a[contains(@class,'ContentMetaInfo_authorlink__')]/span/text()").getall()
+        if Author_links:
+            author_list.extend(Author_links)
+        return author_list
+
+    def get_pub_time(self, response) -> str:
+        """
+        时间泛解析直接转标准格式存在一定问题 先采用转时间戳在转标准的方式
+        """
+        datePublished_str = response.xpath("//time/@datetime").get()
+        if datePublished_str:
+            dt = datetime_helper.fuzzy_parse_timestamp(datePublished_str)
+            Date_mt = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(dt))
+            return str(Date_mt)
+        else:
+            return "9999-01-01 00:00:00"
+
+    def get_tags(self, response) -> list:
+        tags_list = []
+        tags_node = response.xpath("//div[@class='field-label']/following-sibling::div//a/text()").getall()
+        if tags_node:
+            tags_list.extend(tags_node)
+        return tags_list
+
+    def get_content_media(self, response) -> list:
+        content = []
+        news_tags = response.xpath(
+            "//article[contains(@class,'ArticleContainer_root')]/*|//h3[contains(@class,'ContentHead_lead__')]")
+        if news_tags:
+            for news_tag in news_tags:
+                if news_tag.root.tag in ["h1", "h2", "h3", "h4", "h5", "p"]:
+                    if news_tag.xpath("./img"):
+                        con_img = self.parse_img(response, news_tag, img_xpath="./img/@src")
+                        if con_img:
+                            content.append(con_img)
+                    text_dict = self.parse_text(news_tag)
+                    if text_dict:
+                        content.append(text_dict)
+                elif news_tag.root.tag == "img":
+                    con_img = self.parse_img(response, news_tag, img_xpath="./@src", img_des="./@alt")
+                    if con_img:
+                        content.append(con_img)
+                elif news_tag.root.tag == "figure":
+                    con_img = self.parse_img(response, news_tag, img_xpath=".//img/@src", img_des=".//img/@alt")
+                    if con_img:
+                        content.append(con_img)
+                elif news_tag.root.tag in ["ul", "ol"]:
+                    traversal_node = news_tag.xpath("./li")
+                    for li in traversal_node:
+                        text_dict = self.parse_text(li)
+                        content.append(text_dict)
+
+        return content
+
+    def get_detected_lang(self, response) -> str:
+        return "zh"
+
+    def parse_text(self, news_tag):
+        """"
+            可以对一个标签下存在多个段落进行解析
+        """
+        dic = {}
+        cons = news_tag.xpath(".//text()").extract() or ""
+        new_cons = []
+        if cons:
+            for x in cons:
+                if x.strip():
+                    new_cons.append(x.strip())
+            new_cons = ''.join([c for c in new_cons if c != ""])
+            if new_cons:
+                dic['data'] = new_cons
+                dic['type'] = 'text'
+
+        return dic
+
+    def parse_img(self, response, news_tag, img_xpath='', img_des=''):
+        """
+            先判断链接是否存在
+        """
+        img = news_tag.xpath(img_xpath).extract_first()
+
+        if img and ".html" not in img:
+            img_url = urljoin(response.url, img)
+            dic = {"type": "image",
+                   "name": None,
+                   "md5src": self.get_md5_value(img_url) + '.jpg',
+                   "description": news_tag.xpath(img_des).extract_first() or None,
+                   "src": img_url}
+            return dic
+
+    def parse_file(self, response, news_tag):
+        fileUrl = news_tag.xpath(".//@href").extract_first()
+        if fileUrl:
+            file_src = urljoin(response.url, fileUrl)
+            file_dic = {
+                "type": "file",
+                "src": file_src,
+                "name": news_tag.attrib.get('title'),
+                "description": None,
+                "md5src": self.get_md5_value(file_src) + ".pdf"
+            }
+            return file_dic
+
+    def parse_media(self, response, news_tag):
+        videoUrl = news_tag.xpath("").extract_first()
+        if videoUrl:
+            video_src = urljoin(response.url, videoUrl)
+            video_dic = {
+                "type": "video",
+                "src": video_src,
+                "name": None,
+                "description": None,
+                "md5src": self.get_md5_value(video_src) + ".mp4"
+            }
+            return video_dic
+
+    def get_like_count(self, response) -> int:
+        like_count = 0
+        return like_count
+
+    def get_comment_count(self, response) -> int:
+        comment_count = 0
+        comment_count_str = response.xpath("//span[@class='commentcount']/text()").get()
+        if comment_count_str:
+            comment_count = int(comment_count_str)
+        return comment_count
+
+    def get_forward_count(self, response) -> int:
+        return 0
+
+    def get_read_count(self, response) -> int:
+        read_count = 0
+        return read_count
+
+    def get_if_repost(self, response) -> bool:
+        return False
+
+    def get_repost_source(self, response) -> str:
+        repost_source = ""
+        return repost_source

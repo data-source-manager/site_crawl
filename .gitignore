@@ -1,0 +1,6 @@
+*.DS_Store
+*.html
+*.json
+.idea
+*test.py
+*pycache*

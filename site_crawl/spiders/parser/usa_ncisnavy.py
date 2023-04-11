@@ -1,0 +1,152 @@
+# -*- coding: utf-8 -*-
+import time
+from urllib.parse import urljoin
+
+import langdetect
+
+from util.time_deal import datetime_helper
+from .base_parser import BaseParser
+
+
+class NcisnavyParser(BaseParser):
+    name = 'ncisnavy'
+    # 站点id
+    site_id = "5e5c6f26-f262-4d4b-bf0f-66c0a27f5a42"
+    # 站点名
+    site_name = "美国海军犯罪调查局"
+    # 板块信息
+    channel = [
+        {
+            # 板块默认字段(站点id, 站点名, 站点地区)
+            **{"site_id": "5e5c6f26-f262-4d4b-bf0f-66c0a27f5a42", "source_name": "美国海军犯罪调查局", "direction": "usa", "if_front_position": False}, 
+            # (板块id, 板块名, 板块URL, 板块类型)
+            **{"board_id": board_id, "site_board_name": board_name, "url": board_url, "board_theme": board_theme}
+        }
+        for board_id, board_name, board_url, board_theme in [
+            ("984c0799-b7d1-36d9-b16e-96662851c94d", "媒体", "", "政治"),
+            ("91232c20-2f72-11ed-a768-d4619d029786", "媒体/新闻", "https://www.ncis.navy.mil/Media/Press-Releases/", "军事"),
+        ]
+    ]
+
+    def __init__(self):
+        BaseParser.__init__(self)
+
+    def parse_list(self, response) -> list:
+        news_urls = response.xpath(
+            '//td/a/@href').extract() or []
+        if news_urls:
+            for news_url in list(set(news_urls)):
+                news_url = urljoin(response.url, news_url)
+                if news_url.endswith('.pdf'):
+                    continue
+                yield news_url
+
+    def get_title(self, response) -> str:
+        title = response.xpath('//h1[@id="node-title"]/text()|//h1[@class="node-title"]/text()').extract_first(
+            default="")
+        return title.strip() or ""
+
+    def get_author(self, response) -> list:
+        return []
+
+    def get_pub_time(self, response) -> str:
+        # 16.07.2022 – 23:42
+        pub = response.xpath('//span[@datatype="xsd:dateTime"]/@content').extract_first()
+        if pub:
+            pub_time = datetime_helper.fuzzy_parse_timestamp(pub)
+            pub_time = str(time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(pub_time)))
+        else:
+            pub_time = "9999-01-01 00:00:00"
+        return pub_time
+
+    def get_tags(self, response) -> list:
+        tags = response.xpath('//div[contains(text(), "Topic(s):")]/following-sibling::div[1]/div/text()').extract()
+        if tags:
+            return [x.strip() for x in tags]
+        return []
+
+    def get_content_media(self, response) -> list:
+        content = []
+
+        news_tags = response.xpath(
+            '//h1[@id="node-title"]/following-sibling::div/div/div/p|'
+            '//h1[@class="node-title"]/following-sibling::div/div/div/p')
+        if news_tags:
+            for news_tag in news_tags:
+                if news_tag.root.tag in ["h2", "h3", "h5", "strong", "p"]:
+                    text_dict = self.parse_text(news_tag)
+                    if text_dict.get("data"):
+                        content.append(text_dict)
+        return content
+
+    def get_detected_lang(self, response) -> str:
+        title = self.get_title(response)
+        if title:
+            return langdetect.detect(f"{title}")
+        else:
+            print('error, no title url:' + response.url)
+            return ''
+
+    def parse_text(self, news_tag):
+        dic = {}
+        cons = news_tag.xpath('.//text()').extract() or ""
+        new_cons = []
+        if cons:
+            for x in cons:
+                if x.strip():
+                    new_cons.append(x.strip())
+            new_cons = ''.join([c for c in new_cons if c != ""])
+            if new_cons:
+                dic['data'] = new_cons
+                dic['type'] = 'text'
+        return dic
+
+    def parse_img(self, response, news_tag):
+        img_url = urljoin(response.url, news_tag.attrib.get('src'))
+        dic = {"type": "image",
+               "name": None,
+               "md5src": self.get_md5_value(img_url) + '.jpg',
+               "description": response.xpath(".//p/text()").extract_first(),
+               "src": img_url
+               }
+        return dic
+
+    def parse_file(self, response, news_tag):
+        file_src = urljoin(response.url, news_tag.xpath(".//a/@href").extract_first())
+        file_dic = {
+            "type": "file",
+            "src": file_src,
+            "name": news_tag.xpath(".//a/text()").extract_first(),
+            "description": None,
+            "md5src": self.get_md5_value(file_src) + ".pdf"
+        }
+        return file_dic
+
+    def parse_media(self, response, news_tag):
+        video_src = urljoin(response.url, news_tag.xpath("").extract_first())
+        video_dic = {
+            "type": "video",
+            "src": video_src,
+            "name": None,
+            "description": None,
+            "md5src": self.get_md5_value(video_src) + ".mp4"
+        }
+        return video_dic
+
+    def get_like_count(self, response) -> int:
+        return 0
+
+    def get_comment_count(self, response) -> int:
+        return 0
+
+    def get_forward_count(self, response) -> int:
+        return 0
+
+    def get_read_count(self, response) -> int:
+        return 0
+
+    def get_if_repost(self, response) -> bool:
+        return False
+
+    def get_repost_source(self, response) -> str:
+        return ""
