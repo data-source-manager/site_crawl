@@ -123,7 +123,7 @@ class BasicSpider(RedisSpider):
             item = NewsItem(
                 site_id=getattr(app_class, "site_id", "") if getattr(app_class, "site_id", "") else source_dict.get(
                     meta.get("source_name", "")),
-                board_id=meta.get("board_id", ""),
+                board_id=meta.get("board_uuid", ""),
                 url=origin_url,
                 channel=app_class.get_channel(response),
                 title=app_class.get_title(response),
