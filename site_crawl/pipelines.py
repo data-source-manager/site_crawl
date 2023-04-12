@@ -50,65 +50,6 @@ class NewsRedisPipeline:
             self.pushComment(settings['REDIS_COMMENT_QUEUE'], json.dumps(commentDict, ensure_ascii=False))
 
 
-# 数据入库
-class site_crawlPipeline:
-    def __init__(self):
-        self.setting = settings["MYSQL_SETTING"]
-        self.con = pymysql.connect(host=self.setting["Host"],
-                                   user=self.setting["User"],
-                                   password=self.setting["PassWord"],
-                                   db=self.setting["Db"],
-                                   charset="utf8mb4",
-                                   port=33061
-                                   )
-
-        self.cursor = self.con.cursor()
-
-    def close_spider(self, spider):
-        self.con.close()
-
-    def process_item(self, item, spider):
-        if isinstance(item, NewsItem):
-            logging.info(item)
-            try:
-                title = item['title'].replace('&nbsp;', ' ').replace('\xa0', '').replace('\u3000', ' ').strip()
-                content = json.dumps(item["contents"], ensure_ascii=False)
-                if item["contents"]:
-                    module = item["channel"]
-                    data = (
-                        item["uuid"],
-                        source_dict.get(module['source_name']),
-                        module["domain"],
-                        unquote(item["url"]),
-                        title,
-                        json.dumps(item["author"], ensure_ascii=False),
-                        content,
-                        item["comment_count"],
-                        item["read_count"],
-                        item["like_count"],
-                        item["forward_count"],
-                        json.dumps(item["tags"], ensure_ascii=False),
-                        item["article_source"],
-                        item["publish_time"],
-                        0
-                    )
-                    insert_sql = f"insert into article(uuid,site_id,domain,url,title,author,content,comment_count,read_count," \
-                                 f"like_count,forward_count,article_keywords,article_source,publish_time,article_type) values {data}"
-                    self.con.ping(reconnect=True)
-                    self.cursor.execute(insert_sql)
-                    self.con.commit()
-                else:
-                    msg = 'content is empty please check it,id:{},domain:{}'.format(item["url"],
-                                                                                    item["channel"]["domain"])
-                    log = LogItem(code=1010, time=get_time(), msg=msg)
-                    log_obj.deal_log(log)
-            except:
-                msg = 'Parse pipelineItem fail: error:{},item:{}'.format(traceback.format_exc(), item)
-                log = LogItem(code=1004, time=get_time(), msg=msg)
-                log_obj.deal_log(log)
-        return item
-
-
 # 线下数据转csv测试
 class ToJsonPipeline:
     def process_item(self, item, spider):
@@ -174,15 +115,17 @@ class checkItemFieldPipeline:
         多媒体的检测太过耗时
         """
         pass
+
+
 class site_crawlPgPipeline:
     def __init__(self):
         self.setting = settings["PG_SETTING"]
         self.con = psycopg2.connect(host=self.setting["Host"],
-                                   user=self.setting["User"],
-                                   password=self.setting["PassWord"],
-                                   database=self.setting["Db"],
+                                    user=self.setting["User"],
+                                    password=self.setting["PassWord"],
+                                    database=self.setting["Db"],
                                     port=self.setting['Port']
-                                  )
+                                    )
 
         self.cursor = self.con.cursor()
 
@@ -212,20 +155,17 @@ class site_crawlPgPipeline:
                         "",
                         item["detected_lang"],
                         module["direction"],
-                        module["board_theme"],
                         json.dumps(item["tags"], ensure_ascii=False),
                         module["site_board_name"],
                         item["board_id"],
                         item["article_source"],
-                        item["if_repost"],
-                        module["if_front_position"],
                         item["publish_time"],
                         get_time(),
                         item["site_id"]
                     )
                     insert_sql = f'insert INTO article (news_uuid, title, content, site_domain, source_name, url, author, comment_count, read_count,' \
-                                 f' like_count, forward_count, site_type, lang, direction, board_theme, article_tag, site_board_name, ' \
-                                 f'site_board_uuid, repost_source, if_repost, if_front_position, publish_time, insert_time, site_uuid)VALUES {data}'
+                                 f' like_count, forward_count, site_type, lang, direction, article_tag, site_board_name, ' \
+                                 f'site_board_uuid, repost_source, publish_time, insert_time, site_uuid)VALUES {data}'
                     print(insert_sql)
                     self.cursor.execute(insert_sql)
                     self.con.commit()

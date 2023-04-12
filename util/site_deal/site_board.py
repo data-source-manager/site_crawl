@@ -10,10 +10,10 @@ def get_site_channel_info(channel: dict, appid) -> dict:
     return {
         "meta": {
             'appid': appid,
-            'direction': channel.get('direction'),
-            'url':channel.get('url'),
-            'source_name': channel.get('source_name'),
-            'site_board_name': channel.get("site_board_name"),
+            'country': channel.get('direction'),
+            'url': channel.get('url'),
+            'site_name': channel.get('source_name'),
+            'board_name': channel.get("site_board_name"),
             'board_theme': channel.get("board_theme"),
             'if_front_position': channel.get("if_front_position"),
             'posturl': channel.get('posturl') or '',
@@ -118,7 +118,6 @@ class Site:
 
 
 siteDeal = Site()
-
 
 if __name__ == '__main__':
     t = Site().site_info(3044)

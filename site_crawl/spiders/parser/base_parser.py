@@ -65,11 +65,9 @@ class BaseParser:
     def get_channel(self, response):
         channel = {
             'name': response.meta.get('name'),
-            'direction': response.meta.get('direction'),
-            'source_name': response.meta.get('source_name'),
-            'site_board_name': response.meta.get('site_board_name'),
-            'board_theme': response.meta.get('board_theme'),
-            'if_front_position': response.meta.get('if_front_position'),
+            'direction': response.meta.get('country'),
+            'source_name': response.meta.get('site_name'),
+            'site_board_name': response.meta.get('board_name'),
             'domain': response.meta.get('app_domain')
         }
         return channel
