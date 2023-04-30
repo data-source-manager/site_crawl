@@ -9,6 +9,7 @@ from urllib.parse import unquote
 import psycopg2
 import pymysql
 import redis
+from kafka import KafkaProducer
 from scrapy.utils.project import get_project_settings
 
 from apps.entry_id import source_dict
@@ -115,6 +116,28 @@ class checkItemFieldPipeline:
         多媒体的检测太过耗时
         """
         pass
+
+
+class KafkaPipeline(object):
+    def __init__(self, servers, topic):
+        self.producer = KafkaProducer(bootstrap_servers=servers, api_version=(0, 10, 2))
+        self.topic = topic
+
+    @classmethod
+    def from_crawler(cls, crawler):
+        kf_setting = crawler.settings.get('KAFKA_SETTING')
+        servers = kf_setting.get("KAFKA_SERVERS")
+        topic = kf_setting.get('KAFKA_TOPIC')
+        return cls(servers, topic)
+
+    def close_spider(self, spider):
+        self.producer.close()
+
+    def process_item(self, item, spider):
+        print(item)
+        data = json.dumps(dict(item), ensure_ascii=False).encode('utf-8')
+        self.producer.send(self.topic, data)
+        return item
 
 
 class site_crawlPgPipeline:

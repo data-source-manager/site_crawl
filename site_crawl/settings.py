@@ -39,7 +39,10 @@ REDIS_SETTING = {
     "redis_comment_queue": "news:comment:url",
     "error_board_mag_queue": "news:board:error"
 }
-
+KAFKA_SETTING = {
+    "KAFKA_SERVERS": '',
+    "KAFKA_TOPIC": 'news-data'
+}
 PG_SETTING = {
     "Host": "xxx",
     "User": "postgres",
@@ -54,7 +57,7 @@ proxy = {
 }
 
 ITEM_PIPELINES = {
-    'site_crawl.pipelines.site_crawlPgPipeline': 300,
+    'site_crawl.pipelines.KafkaPipeline': 300,
     # 'site_crawl.pipelines.NewsRedisPipeline': 301,
 }
 LOG_LEVEL = 'INFO'
