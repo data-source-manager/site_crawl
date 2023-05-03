@@ -25,7 +25,7 @@ USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, li
              'Safari/537.36 '
 
 CHROME_TIMEOUT = 15
-REDIS_HOST = '127.0.0.1'
+REDIS_HOST = '124.221.92.125'
 REDIS_PORT = 63791
 
 REDIS_SETTING = {

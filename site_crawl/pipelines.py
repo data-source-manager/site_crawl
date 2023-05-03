@@ -7,12 +7,10 @@ import traceback
 from urllib.parse import unquote
 
 import psycopg2
-import pymysql
 import redis
 from kafka import KafkaProducer
 from scrapy.utils.project import get_project_settings
 
-from apps.entry_id import source_dict
 from service.log.log_deal import log_obj
 from site_crawl.items import LogItem, NewsItem
 from util.time_deal.datetime_helper import fuzzy_parse_timestamp
