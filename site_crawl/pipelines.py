@@ -116,6 +116,14 @@ class checkItemFieldPipeline:
         pass
 
 
+def getContentText(content: list) -> list:
+    new_con = []
+    for con in content:
+        if con.get("type") == "text":
+            new_con.append(con)
+    return new_con
+
+
 class KafkaPipeline(object):
     def __init__(self, servers, topic):
         self.producer = KafkaProducer(bootstrap_servers=servers, api_version=(0, 10, 2))
@@ -131,14 +139,43 @@ class KafkaPipeline(object):
     def close_spider(self, spider):
         self.producer.close()
 
+    def transItemToDict(self, item) -> dict:
+        title = item['title'].replace('&nbsp;', ' ').replace('\xa0', '').replace('\u3000', ' ').strip()
+        content = json.dumps(item["contents"], ensure_ascii=False)
+        module = item["channel"]
+        return {
+            "uuid": item["uuid"],
+            "title": title,
+            "content": content,
+            "domain": module["domain"],
+            "source_name": module["source_name"],
+            "url": unquote(item["url"]),
+            "author": item["author"],
+            "comment_count": item["comment_count"],
+            "read_count": item["read_count"],
+            "like_count": item["like_count"],
+            "forward_count": item["forward_count"],
+            "news_type": "",
+            "detected_lang": item["detected_lang"],
+            "direction": module["direction"],
+            "tags": item["tags"],
+            "site_board_name": module["site_board_name"],
+            "board_id": item["board_id"],
+            "article_source": item["article_source"],
+            "publish_time": item["publish_time"],
+            "insert_time": get_time(),
+            "site_id": item["site_id"],
+            "index_con": getContentText(item["contents"])
+        }
+
     def process_item(self, item, spider):
         print(item)
-        data = json.dumps(dict(item), ensure_ascii=False).encode('utf-8')
+        data = json.dumps(self.transItemToDict(item), ensure_ascii=False).encode('utf-8')
         self.producer.send(self.topic, data)
         return item
 
 
-class site_crawlPgPipeline:
+class SiteCrawlPgPipeline:
     def __init__(self):
         self.setting = settings["PG_SETTING"]
         self.con = psycopg2.connect(host=self.setting["Host"],

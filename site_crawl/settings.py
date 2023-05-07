@@ -25,7 +25,7 @@ USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, li
              'Safari/537.36 '
 
 CHROME_TIMEOUT = 15
-REDIS_HOST = '124.221.92.125'
+REDIS_HOST = '127.0.0.1'
 REDIS_PORT = 63791
 
 REDIS_SETTING = {
@@ -40,11 +40,11 @@ REDIS_SETTING = {
     "error_board_mag_queue": "news:board:error"
 }
 KAFKA_SETTING = {
-    "KAFKA_SERVERS": '',
+    "KAFKA_SERVERS": '127.0.0.1:9092',
     "KAFKA_TOPIC": 'news-data'
 }
 PG_SETTING = {
-    "Host": "xxx",
+    "Host": "127.0.0.1:9092",
     "User": "postgres",
     "Db": "news",
     "PassWord": "abc123",
